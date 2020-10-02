@@ -1,18 +1,26 @@
+/*
+Package gender provides structures, tools, and methods for dealing with
+gender, including description and pronoun generation.
+*/
 package gender
 
-import "math/rand"
+import (
+	"context"
+
+	"github.com/ironarachne/world/pkg/random"
+)
 
 // Gender is a gender and its accompanying descriptors
 type Gender struct {
-	Name                 string
-	Noun                 string
-	PluralNoun           string
-	AdolescentNoun       string
-	PluralAdolescentNoun string
-	ObjectPronoun        string
-	PossessivePronoun    string
-	ReflexivePronoun     string
-	SubjectPronoun       string
+	Name                 string `json:"name"`
+	Noun                 string `json:"noun"`
+	PluralNoun           string `json:"plural_noun"`
+	AdolescentNoun       string `json:"adolescent_noun"`
+	PluralAdolescentNoun string `json:"plural_adolescent_noun"`
+	ObjectPronoun        string `json:"object_pronoun"`
+	PossessivePronoun    string `json:"possessive_pronoun"`
+	ReflexivePronoun     string `json:"reflexive_pronoun"`
+	SubjectPronoun       string `json:"subject_pronoun"`
 }
 
 // All returns all genders
@@ -68,8 +76,8 @@ func (gender Gender) Opposite() Gender {
 }
 
 // Random returns a random gender
-func Random() Gender {
+func Random(ctx context.Context) Gender {
 	genders := All()
 
-	return genders[rand.Intn(len(genders))]
+	return genders[random.Intn(ctx, len(genders))]
 }

@@ -1,8 +1,11 @@
+/*
+Package character provides fictional character generation tools.
+*/
 package character
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 
 	"github.com/ironarachne/world/pkg/race"
 
@@ -18,27 +21,31 @@ import (
 	"github.com/ironarachne/world/pkg/slices"
 )
 
+const characterError = "failed to generate character: %w"
+const coupleError = "failed to generate couple: %w"
+const cultureNameError = "failed to generate appropriate name for culture: %w"
+
 // Character is a character
 type Character struct {
-	FirstName      string
-	LastName       string
-	Title          string   // Title is the character's primary title
-	Titles         []string // Titles is a list of all of the character's titles
-	Heraldry       heraldry.Device
-	Gender         gender.Gender
-	Age            int
-	AgeCategory    age.Category
-	Orientation    string
-	Height         int
-	Weight         int
-	Profession     profession.Profession
-	Hobby          Hobby
-	NegativeTraits []string
-	PositiveTraits []string
-	Motivation     string
-	PhysicalTraits []trait.Trait
-	Culture        culture.Culture
-	Race           species.Species
+	FirstName      string                    `json:"first_name"`
+	LastName       string                    `json:"last_name"`
+	Title          string                    `json:"title"`  // Title is the character's primary title
+	Titles         []string                  `json:"titles"` // Titles is a list of all of the character's titles
+	Heraldry       heraldry.SimplifiedDevice `json:"heraldry"`
+	Gender         gender.Gender             `json:"gender"`
+	Age            int                       `json:"age"`
+	AgeCategory    age.Category              `json:"age_category"`
+	Orientation    string                    `json:"orientation"`
+	Height         int                       `json:"height"`
+	Weight         int                       `json:"weight"`
+	Profession     profession.Profession     `json:"profession"`
+	Hobby          Hobby                     `json:"hobby"`
+	NegativeTraits []string                  `json:"negative_traits"`
+	PositiveTraits []string                  `json:"positive_traits"`
+	Motivation     string                    `json:"motivation"`
+	PhysicalTraits []trait.Trait             `json:"physical_traits"`
+	Culture        culture.Culture           `json:"culture"`
+	Race           species.Species           `json:"race"`
 }
 
 // Couple is a pair of partners
@@ -55,31 +62,40 @@ type Family struct {
 	Children   []Character
 }
 
-func getAppropriateName(gender string, culture culture.Culture) (string, string, error) {
-	firstName, err := culture.Language.RandomGenderedName(gender)
+func getAppropriateName(ctx context.Context, gender string, culture culture.Culture) (string, string, error) {
+	firstName, err := culture.Language.RandomMaleFirstName(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate appropriate name for culture: %w", err)
+		err = fmt.Errorf(cultureNameError, err)
 		return "", "", err
 	}
-	lastName, err := culture.Language.RandomName()
+
+	if gender == "female" {
+		firstName, err = culture.Language.RandomFemaleFirstName(ctx)
+		if err != nil {
+			err = fmt.Errorf(cultureNameError, err)
+			return "", "", err
+		}
+	}
+
+	lastName, err := culture.Language.RandomFamilyName(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate appropriate name for culture: %w", err)
+		err = fmt.Errorf(cultureNameError, err)
 		return "", "", err
 	}
 
 	return firstName, lastName, nil
 }
 
-func randomOrientation() (string, error) {
+func randomOrientation(ctx context.Context) (string, error) {
 	orientations := map[string]int{
 		"straight": 100,
 		"gay":      10,
 		"bi":       15,
 	}
 
-	orientation, err := random.StringFromThresholdMap(orientations)
+	orientation, err := random.StringFromThresholdMap(ctx, orientations)
 	if err != nil {
-		err = fmt.Errorf("Could not generate random sexual orientation: %w", err)
+		err = fmt.Errorf("failed to generate random sexual orientation: %w", err)
 		return "", err
 	}
 
@@ -87,54 +103,54 @@ func randomOrientation() (string, error) {
 }
 
 // Generate generates a random character
-func Generate(originCulture culture.Culture) (Character, error) {
+func Generate(ctx context.Context, originCulture culture.Culture) (Character, error) {
 	var t trait.Trait
 	char := Character{}
 
-	char.Gender = gender.Random()
+	char.Gender = gender.Random(ctx)
 	char.Culture = originCulture
 	char.Race = char.Culture.PrimaryRace
 
-	firstName, lastName, err := getAppropriateName(char.Gender.Name, char.Culture)
+	firstName, lastName, err := getAppropriateName(ctx, char.Gender.Name, char.Culture)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
 	char.FirstName = firstName
 	char.LastName = lastName
 
-	ageCategory, err := age.GetWeightedAgeCategory(char.Race.AgeCategories)
+	ageCategory, err := age.GetWeightedAgeCategory(ctx, char.Race.AgeCategories)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
 	char.AgeCategory = ageCategory
-	char.Age = age.GetRandomAge(char.AgeCategory)
+	char.Age = age.GetRandomAge(ctx, char.AgeCategory)
 
-	orientation, err := randomOrientation()
+	orientation, err := randomOrientation(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
 	char.Orientation = orientation
-	char.Profession = profession.Random()
-	char.Hobby = char.getRandomHobby()
-	motivation, err := getRandomMotivation()
+	char.Profession, _ = profession.Random(ctx)
+	char.Hobby = char.getRandomHobby(ctx)
+	motivation, err := getRandomMotivation(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
 	char.Motivation = motivation
 
-	negativeTraits, err := getRandomNegativeTraits(2)
+	negativeTraits, err := getRandomNegativeTraits(ctx, 2)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
 	char.NegativeTraits = negativeTraits
-	positiveTraits, err := getRandomPositiveTraits(3)
+	positiveTraits, err := getRandomPositiveTraits(ctx, 3)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
 	char.PositiveTraits = positiveTraits
@@ -142,9 +158,9 @@ func Generate(originCulture culture.Culture) (Character, error) {
 	raceTraits := []trait.Trait{}
 
 	for _, i := range char.Race.CommonTraits {
-		t, err = i.ToTrait()
+		t, err = i.ToTrait(ctx)
 		if err != nil {
-			err = fmt.Errorf("Could not generate character: %w", err)
+			err = fmt.Errorf(characterError, err)
 			return Character{}, err
 		}
 		raceTraits = append(raceTraits, t)
@@ -152,47 +168,47 @@ func Generate(originCulture culture.Culture) (Character, error) {
 
 	possibleTraits := char.Race.PossibleTraits
 	possibleTraits = append(possibleTraits, race.GetCommonPossibleTraits()...)
-	uniqueTraitTemplate, err := trait.RandomTemplate(possibleTraits)
+	uniqueTraitTemplate, err := trait.RandomTemplate(ctx, possibleTraits)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
-	uniqueTrait, err := uniqueTraitTemplate.ToTrait()
+	uniqueTrait, err := uniqueTraitTemplate.ToTrait(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate character: %w", err)
+		err = fmt.Errorf(characterError, err)
 		return Character{}, err
 	}
 	raceTraits = append(raceTraits, uniqueTrait)
 	char.PhysicalTraits = raceTraits
 
-	char.Height = age.GetRandomHeight(char.Gender.Name, char.AgeCategory)
-	char.Weight = age.GetRandomWeight(char.Gender.Name, char.AgeCategory)
+	char.Height = age.GetRandomHeight(ctx, char.Gender.Name, char.AgeCategory)
+	char.Weight = age.GetRandomWeight(ctx, char.Gender.Name, char.AgeCategory)
 
 	return char, nil
 }
 
 // GenerateCouple generates a couple
-func GenerateCouple() (Couple, error) {
-	char1, err := Random()
+func GenerateCouple(ctx context.Context) (Couple, error) {
+	char1, err := Random(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate couple: %w", err)
+		err = fmt.Errorf(coupleError, err)
 		return Couple{}, err
 	}
-	char2, err := Generate(char1.Culture)
+	char2, err := Generate(ctx, char1.Culture)
 	if err != nil {
-		err = fmt.Errorf("Could not generate couple: %w", err)
+		err = fmt.Errorf(coupleError, err)
 		return Couple{}, err
 	}
 	canHaveChildren := false
 
 	if char1.AgeCategory.Name == "child" {
 		char1.AgeCategory = age.GetCategoryByName("adult", char1.Race.AgeCategories)
-		char1.Age = age.GetRandomAge(char1.AgeCategory)
+		char1.Age = age.GetRandomAge(ctx, char1.AgeCategory)
 	}
 
 	if char2.AgeCategory.Name == "child" {
 		char2.AgeCategory = age.GetCategoryByName("adult", char2.Race.AgeCategories)
-		char2.Age = age.GetRandomAge(char2.AgeCategory)
+		char2.Age = age.GetRandomAge(ctx, char2.AgeCategory)
 	}
 
 	orientations := []string{char1.Orientation, char2.Orientation}
@@ -208,9 +224,9 @@ func GenerateCouple() (Couple, error) {
 		char2.Gender = char1.Gender
 	}
 
-	partnerFirstName, _, err := getAppropriateName(char2.Gender.Name, char2.Culture)
+	partnerFirstName, _, err := getAppropriateName(ctx, char2.Gender.Name, char2.Culture)
 	if err != nil {
-		err = fmt.Errorf("Could not generate couple: %w", err)
+		err = fmt.Errorf(coupleError, err)
 		return Couple{}, err
 	}
 	char2.FirstName = partnerFirstName
@@ -225,8 +241,8 @@ func GenerateCouple() (Couple, error) {
 }
 
 // GenerateAdultDescendent generates an adult character based on a couple
-func GenerateAdultDescendent(couple Couple) (Character, error) {
-	descendent, err := Generate(couple.Partner1.Culture)
+func GenerateAdultDescendent(ctx context.Context, couple Couple) (Character, error) {
+	descendent, err := Generate(ctx, couple.Partner1.Culture)
 	if err != nil {
 		err = fmt.Errorf("Could not generate descendent: %w", err)
 		return Character{}, err
@@ -236,33 +252,33 @@ func GenerateAdultDescendent(couple Couple) (Character, error) {
 
 	ac := age.GetCategoryByName("adult", couple.Partner1.Race.AgeCategories)
 
-	descendent.Age = age.GetRandomAge(ac)
+	descendent.Age = age.GetRandomAge(ctx, ac)
 	descendent.AgeCategory = age.GetCategoryFromAge(descendent.Age, couple.Partner1.Race.AgeCategories)
 
 	return descendent, nil
 }
 
 // GenerateChild generates a child character for a couple
-func GenerateChild(couple Couple) (Character, error) {
-	child, err := Generate(couple.Partner1.Culture)
+func GenerateChild(ctx context.Context, couple Couple) (Character, error) {
+	child, err := Generate(ctx, couple.Partner1.Culture)
 	if err != nil {
 		err = fmt.Errorf("Could not generate child: %w", err)
 		return Character{}, err
 	}
 
 	child.LastName = couple.Partner1.LastName
-	child.Age, child.AgeCategory = getAgeFromParents(couple)
+	child.Age, child.AgeCategory = getAgeFromParents(ctx, couple)
 
 	if child.AgeCategory.Name == "child" {
-		child.Profession = profession.ByName("none")
+		child.Profession, _ = profession.ByName("none")
 	}
 
 	return child, nil
 }
 
 // GenerateCompatibleMate generates a character appropriate as a mate for another
-func GenerateCompatibleMate(char Character) (Character, error) {
-	mate, err := Generate(char.Culture)
+func GenerateCompatibleMate(ctx context.Context, char Character) (Character, error) {
+	mate, err := Generate(ctx, char.Culture)
 	if err != nil {
 		err = fmt.Errorf("Could not generate mate: %w", err)
 		return Character{}, err
@@ -270,7 +286,7 @@ func GenerateCompatibleMate(char Character) (Character, error) {
 
 	mate.Race = char.Race
 
-	mate.Age = age.GetRandomAge(char.AgeCategory)
+	mate.Age = age.GetRandomAge(ctx, char.AgeCategory)
 	mate.AgeCategory = age.GetCategoryFromAge(mate.Age, mate.Race.AgeCategories)
 
 	if char.Orientation == "straight" {
@@ -285,11 +301,11 @@ func GenerateCompatibleMate(char Character) (Character, error) {
 }
 
 // GenerateFamily generates a random family
-func GenerateFamily() (Family, error) {
+func GenerateFamily(ctx context.Context) (Family, error) {
 	child := Character{}
 	children := []Character{}
 
-	parents, err := GenerateCouple()
+	parents, err := GenerateCouple(ctx)
 	if err != nil {
 		err = fmt.Errorf("Could not generate family: %w", err)
 		return Family{}, err
@@ -300,8 +316,8 @@ func GenerateFamily() (Family, error) {
 	parents.Partner2.LastName = familyName
 
 	if parents.CanHaveChildren {
-		for i := 0; i < rand.Intn(6); i++ {
-			child, err = GenerateChild(parents)
+		for i := 0; i < random.Intn(ctx, 6); i++ {
+			child, err = GenerateChild(ctx, parents)
 			if err != nil {
 				err = fmt.Errorf("Could not generate family: %w", err)
 				return Family{}, err
@@ -326,14 +342,14 @@ func MarryCouple(partner1 Character, partner2 Character) Couple {
 }
 
 // Random generates a completely random character
-func Random() (Character, error) {
-	randomCulture, err := culture.Random()
+func Random(ctx context.Context) (Character, error) {
+	randomCulture, err := culture.Random(ctx)
 	if err != nil {
 		err = fmt.Errorf("Could not generate random character: %w", err)
 		return Character{}, err
 	}
 
-	character, err := Generate(randomCulture)
+	character, err := Generate(ctx, randomCulture)
 	if err != nil {
 		err = fmt.Errorf("Could not generate random character: %w", err)
 		return Character{}, err

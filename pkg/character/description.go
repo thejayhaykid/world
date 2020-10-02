@@ -1,6 +1,7 @@
 package character
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -46,17 +47,17 @@ func allDescriptionTemplates() []string {
 		{{.Traits}}. Motivated by {{.Motivation}}, {{.FirstName}} is {{.PositiveTraits}}, as well as {{.NegativeTraits}}.
 		{{caseStart .SubjectPronoun}} is {{pronoun .Profession}}{{if .Heraldry}} and has a coat of arms of "{{.Heraldry}}." {{else}}.{{end}}`,
 		`The {{.PositiveTraits}} {{.FullName}} is {{.Age}} years old and {{pronoun .Race}} {{.GenderNoun}}. {{caseStart .SubjectPronoun}} is {{pronoun .Profession}},
-		and seeks {{.Motivation}}. {{caseStart .SubjectPronoun}} is {{.Height}} tall and weighs {{.Weight}} lbs. Despite a generally positive perception, some
+		and is driven by {{.Motivation}}. {{caseStart .SubjectPronoun}} is {{.Height}} tall and weighs {{.Weight}} lbs. Despite a generally positive perception, some
 		describe {{.FirstName}} as {{.NegativeTraits}}. {{caseStart .SubjectPronoun}} has {{.Traits}}.`,
 	}
 
 	return templates
 }
 
-func randomDescriptionTemplate() (string, error) {
+func randomDescriptionTemplate(ctx context.Context) (string, error) {
 	all := allDescriptionTemplates()
 
-	template, err := random.String(all)
+	template, err := random.String(ctx, all)
 	if err != nil {
 		err = fmt.Errorf("Could not generate description template: %w", err)
 		return "", err

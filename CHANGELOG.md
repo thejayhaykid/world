@@ -1,5 +1,124 @@
 # Change Log
 
+## 0.11.1 (2020-03-18)
+
+- Add JSON hinting for music
+
+## 0.11.0 (2020-03-16)
+
+- Add geographic areas, which include biomes, climates, and geographic regions
+- Replace previous "climate" package with the new geographic areas
+- Rework music style package to reflect musical theory instead of instruments
+- Change how plants and animals are derived from geography
+- Remove climate from culture to make it independent, despite originating a culture in a geography
+- Fix deity relationships and add relationships to deity descriptions
+- Update to use Go 1.14
+
+## 0.10.1 (2020-01-25)
+
+- Fix bug where descriptors were dropped for blazon descriptions of singular charges
+
+## 0.10.0 (2020-01-25)
+
+- Refactor heraldry package into several packages
+- Add about 130 new charges to heraldry generator
+- Add NumberToWord function
+
+## 0.9.2 (2020-01-15)
+
+- Use simplified devices instead of devices
+- Add error handling for API endpoints
+- Add sample phrase and sample phrase translation to full language
+
+## 0.9.1 (2020-01-15)
+
+- Add JSON hinting to alcoholic drinks
+- Add description to Deity
+- Improve error messages for heraldry generation
+
+## 0.9.0 (2020-01-10)
+
+- Switch to using JSON files for data instead of hard-coded values
+- Add insects and fish to animal data for climates
+- Fix bug in ordering coordinates by distance
+- Change where heraldry images are saved
+- Switch to using Make for development
+- Added /data endpoints to the API
+
+## 0.8.19 (2019-12-03)
+
+- Add ability to generate regions from a culture passed in via POST
+
+## 0.8.18 (2019-12-03)
+
+- Add drinking culture style to culture
+- Add json hinting to a bunch more packages
+
+## 0.8.17 (2019-12-03)
+
+- Add ability to generate new words for a given language
+- Add json hinting to all structs required for generating languages
+- Return full language data from `/language` endpoints, not a simplified version
+
+## 0.8.16 (2019-12-02)
+
+- Add ability to generate cultures from a climate passed in via POST
+
+## 0.8.15 (2019-12-02)
+
+- Fix bug in tree generation that prevented trees being generated for climates with low humidity
+- Add json hinting to all structs required for generating climates fully
+- Make the `/climate` endpoints return a full climate instead of a simplified climate
+
+## 0.8.14 (2019-11-25)
+
+- Add remaining package description comments
+
+## 0.8.13 (2019-11-21)
+
+- Make file save target configurable
+- Add ability to save PNG files to disk instead of Digital Ocean Spaces
+- Add `run.sh` script to make running the API easier for local development
+- Add package description comments to about half of the packages in this project
+
+## 0.8.12 (2019-11-20)
+
+- Expand organization member ranks to have multiple possible age categories
+- Refactor character hobbies to use multiple potential age categories instead of adult/child booleans
+- Fix a bug in hobby generation when there was only one potential hobby
+- Fix a minor wording problem in character descriptions regarding motivation
+
+## 0.8.11 (2019-11-08)
+
+- Refactor climate generation
+
+## 0.8.10 (2019-11-07)
+
+- Convert fish to Species struct
+- Convert insects to Species struct
+- Convert monsters to Species struct
+- Convert plants to Species struct
+- Convert trees to Species struct
+
+## 0.8.9 (2019-11-07)
+
+- Convert animals to Species struct
+- Remove Animal struct
+
+## 0.8.8 (2019-11-06)
+
+- Split language package into conlang, language, and writing packages
+- Add support for premade languages
+- Add the Common premade language
+- Remove "practice suffix"
+- Add basic religion name generation
+
+## 0.8.7 (2019-11-03)
+
+- Add several new weapon patterns
+- Add hamlets and boroughs to town generation
+- Add several utility functions to species
+
 ## 0.8.6 (2019-10-05)
 
 - Add tiefling to the race package

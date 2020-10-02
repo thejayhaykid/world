@@ -1,15 +1,22 @@
+/*
+Package country provides structures and tools for generating fantasy countries.
+*/
 package country
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
+
+	"github.com/ironarachne/world/pkg/geography"
+	"github.com/ironarachne/world/pkg/random"
 
 	"github.com/ironarachne/world/pkg/culture"
-	"github.com/ironarachne/world/pkg/grid"
+	"github.com/ironarachne/world/pkg/geometry"
 	"github.com/ironarachne/world/pkg/heraldry"
 	"github.com/ironarachne/world/pkg/region"
-	"github.com/ironarachne/world/pkg/worldmap"
 )
+
+const countryError = "failed to generate country: %w"
 
 // Country is a geographic and political area
 type Country struct {
@@ -22,41 +29,47 @@ type Country struct {
 }
 
 // Generate procedurally generates a country
-func Generate() (Country, error) {
+func Generate(ctx context.Context) (Country, error) {
 	regions := []region.Region{}
 	country := Country{}
 
-	dominantCulture, err := culture.Random()
+	originArea, err := geography.Generate(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate country: %w", err)
+		err = fmt.Errorf(countryError, err)
+		return Country{}, err
+	}
+
+	dominantCulture, err := culture.Generate(ctx, originArea)
+	if err != nil {
+		err = fmt.Errorf(countryError, err)
 		return Country{}, err
 	}
 	country.DominantCulture = dominantCulture
-	government, err := country.getNewMonarchy()
+	government, err := country.getNewMonarchy(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate country: %w", err)
+		err = fmt.Errorf(countryError, err)
 		return Country{}, err
 	}
 	country.Government = government
-	device, err := heraldry.Generate()
+	device, err := heraldry.Generate(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate country: %w", err)
+		err = fmt.Errorf(countryError, err)
 		return Country{}, err
 	}
 	country.Heraldry = device
-	name, err := country.DominantCulture.Language.RandomName()
+	name, err := country.DominantCulture.Language.RandomFamilyName(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate country: %w", err)
+		err = fmt.Errorf(countryError, err)
 		return Country{}, err
 	}
 	country.Name = name
 
-	size := rand.Intn(10) + 4
+	size := random.Intn(ctx, 10) + 4
 
 	for i := 0; i < size; i++ {
-		r, err := region.Generate(country.DominantCulture.HomeClimate, country.DominantCulture)
+		r, err := region.Generate(ctx, originArea, country.DominantCulture)
 		if err != nil {
-			err = fmt.Errorf("Could not generate country: %w", err)
+			err = fmt.Errorf(countryError, err)
 			return Country{}, err
 		}
 		regions = append(regions, r)
@@ -81,18 +94,9 @@ func Generate() (Country, error) {
 	return country, nil
 }
 
-// GetAllTiles returns a slice of all tiles in the country
-func (c Country) GetAllTiles(worldMap worldmap.WorldMap) []worldmap.Tile {
-	coords := c.GetAllTileCoordinates()
-
-	tiles := worldmap.FindTilesByCoordinates(coords, worldMap.Tiles)
-
-	return tiles
-}
-
 // GetAllTileCoordinates returns a slice of all coordinates in the country
-func (c Country) GetAllTileCoordinates() []grid.Coordinate {
-	coords := []grid.Coordinate{}
+func (c Country) GetAllTileCoordinates() []geometry.Point {
+	var coords []geometry.Point
 
 	for _, r := range c.Regions {
 		for _, d := range r.TilesOccupied {

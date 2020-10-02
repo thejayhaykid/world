@@ -1,42 +1,21 @@
+/*
+Package monster provides monster implementations of the species.Species struct
+*/
 package monster
 
 import (
-	"math/rand"
+	"fmt"
 
-	"github.com/ironarachne/world/pkg/size"
+	"github.com/ironarachne/world/pkg/species"
 )
 
-// Monster is a monstrous creature or other intelligent threat
-type Monster struct {
-	Name                 string
-	PluralName           string
-	Description          string
-	SizeCategory         size.Category
-	Type                 string
-	IdealTemperature     int
-	TemperatureTolerance int
-	NumAppearing         func() int
-}
+// All returns all predefined monsters
+func All() ([]species.Species, error) {
+	monsters, err := species.Load("monsters")
+	if err != nil {
+		err = fmt.Errorf("failed to load monsters: %w", err)
+		return []species.Species{}, err
+	}
 
-func getAllMonsters() []Monster {
-	monsters := []Monster{}
-
-	draconids := getAllDraconids()
-	giants := getAllGiants()
-	humanoids := getAllHumanoids()
-
-	monsters = append(monsters, draconids...)
-	monsters = append(monsters, giants...)
-	monsters = append(monsters, humanoids...)
-
-	return monsters
-}
-
-// Random returns a random monster
-func Random() Monster {
-	monsters := getAllMonsters()
-
-	monster := monsters[rand.Intn(len(monsters))]
-
-	return monster
+	return monsters, nil
 }

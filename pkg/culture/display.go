@@ -1,12 +1,12 @@
 package culture
 
 import (
+	"context"
+
 	"github.com/ironarachne/world/pkg/buildings"
-	"github.com/ironarachne/world/pkg/climate"
 	"github.com/ironarachne/world/pkg/clothing"
 	"github.com/ironarachne/world/pkg/food"
 	"github.com/ironarachne/world/pkg/language"
-	"github.com/ironarachne/world/pkg/music"
 	"github.com/ironarachne/world/pkg/religion"
 	"github.com/ironarachne/world/pkg/species"
 )
@@ -21,9 +21,8 @@ type SimplifiedCulture struct {
 	CommonFemaleNames []string                          `json:"common_female_names"`
 	CommonMaleNames   []string                          `json:"common_male_names"`
 	FoodStyle         food.SimplifiedStyle              `json:"food_style"`
-	HomeClimate       climate.SimplifiedClimate         `json:"home_climate"`
 	Language          language.SimplifiedLanguage       `json:"language"`
-	MusicStyle        music.SimplifiedStyle             `json:"music_style"`
+	MusicStyle        string                            `json:"music_style"`
 	Name              string                            `json:"name"`
 	PrimaryRace       species.Simplified                `json:"primary_race"`
 	Religion          religion.SimplifiedReligion       `json:"religion"`
@@ -31,7 +30,7 @@ type SimplifiedCulture struct {
 }
 
 // Simplify returns a simplified version of a culture for display
-func (culture Culture) Simplify() SimplifiedCulture {
+func (culture Culture) Simplify(ctx context.Context) SimplifiedCulture {
 	drinks := []string{}
 	for _, d := range culture.AlcoholicDrinks {
 		drinks = append(drinks, d.Description)
@@ -40,14 +39,13 @@ func (culture Culture) Simplify() SimplifiedCulture {
 		Adjective:         culture.Adjective,
 		AlcoholicDrinks:   drinks,
 		BuildingStyle:     culture.BuildingStyle.Simplify(),
-		ClothingStyle:     culture.ClothingStyle.Simplify(),
+		ClothingStyle:     culture.ClothingStyle.Simplify(ctx),
 		CommonFamilyNames: culture.CommonFamilyNames,
 		CommonFemaleNames: culture.CommonFemaleNames,
 		CommonMaleNames:   culture.CommonMaleNames,
 		FoodStyle:         culture.FoodStyle.Simplify(),
-		HomeClimate:       culture.HomeClimate.Simplify(),
 		Language:          culture.Language.Simplify(),
-		MusicStyle:        culture.MusicStyle.Simplify(),
+		MusicStyle:        culture.MusicStyle.Description,
 		Name:              culture.Name,
 		PrimaryRace:       culture.PrimaryRace.Simplify(),
 		Religion:          culture.Religion.Simplify(),

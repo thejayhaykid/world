@@ -1,6 +1,10 @@
+/*
+Package relationship provides tools for dealing with relationships between various entities
+*/
 package relationship
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ironarachne/world/pkg/random"
@@ -9,10 +13,17 @@ import (
 
 // Relationship is a unidirectional relationship between entities
 type Relationship struct {
-	Origin     string
-	Target     string
-	Descriptor string
-	Type       string
+	Origin     string `json:"origin"`
+	Target     string `json:"target"`
+	Descriptor string `json:"descriptor"`
+	Type       string `json:"type"`
+}
+
+// Describe returns a string version of the relationship
+func (r Relationship) Describe() string {
+	description := r.Origin + " " + r.Descriptor + " " + r.Target
+
+	return description
 }
 
 // InSlice checks to see if a relationship is present in a set of relationships
@@ -53,7 +64,7 @@ func GetTypeByName(name string) (Type, error) {
 }
 
 // GetInverse gets an inverse relationship for a given relationship
-func GetInverse(r Relationship) (Relationship, error) {
+func GetInverse(ctx context.Context, r Relationship) (Relationship, error) {
 	originType, err := GetTypeByName(r.Type)
 	if err != nil {
 		err = fmt.Errorf("Failed to get inverse relationship: %w", err)
@@ -66,7 +77,7 @@ func GetInverse(r Relationship) (Relationship, error) {
 		return Relationship{}, err
 	}
 
-	descriptor, err := random.String(inverseType.Descriptors)
+	descriptor, err := random.String(ctx, inverseType.Descriptors)
 	if err != nil {
 		err = fmt.Errorf("Failed to get inverse relationship: %w", err)
 		return Relationship{}, err

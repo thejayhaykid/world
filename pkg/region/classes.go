@@ -1,6 +1,7 @@
 package region
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ironarachne/world/pkg/random"
@@ -8,15 +9,15 @@ import (
 
 // Class is a class of region
 type Class struct {
-	MaxNumberOfTowns         int
-	MinNumberOfTowns         int
-	Name                     string
-	RulerTitleFemale         string
-	RulerTitleMale           string
-	Commonality              int
-	NumberOfTiles            int
-	MinNumberOfOrganizations int
-	MaxNumberOfOrganizations int
+	MaxNumberOfTowns         int    `json:"max_number_of_towns"`
+	MinNumberOfTowns         int    `json:"min_number_of_towns"`
+	Name                     string `json:"name"`
+	RulerTitleFemale         string `json:"ruler_title_female"`
+	RulerTitleMale           string `json:"ruler_title_male"`
+	Commonality              int    `json:"commonality"`
+	NumberOfTiles            int    `json:"number_of_tiles"`
+	MinNumberOfOrganizations int    `json:"min_number_of_organizations"`
+	MaxNumberOfOrganizations int    `json:"max_number_of_organizations"`
 }
 
 func getAllClasses() []Class {
@@ -81,7 +82,7 @@ func getAllClasses() []Class {
 	return classes
 }
 
-func getRandomWeightedClass() (Class, error) {
+func getRandomWeightedClass(ctx context.Context) (Class, error) {
 	classes := getAllClasses()
 
 	weights := map[string]int{}
@@ -90,9 +91,9 @@ func getRandomWeightedClass() (Class, error) {
 		weights[c.Name] = c.Commonality
 	}
 
-	name, err := random.StringFromThresholdMap(weights)
+	name, err := random.StringFromThresholdMap(ctx, weights)
 	if err != nil {
-		err = fmt.Errorf("Failed to get random weighted region class: %w", err)
+		err = fmt.Errorf("failed to get random weighted region class: %w", err)
 		return Class{}, err
 	}
 
@@ -102,6 +103,6 @@ func getRandomWeightedClass() (Class, error) {
 		}
 	}
 
-	err = fmt.Errorf("Failed to get random weighted region class!")
+	err = fmt.Errorf("failed to get random weighted region class")
 	return Class{}, err
 }

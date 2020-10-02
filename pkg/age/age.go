@@ -1,8 +1,11 @@
+/*
+Package age implements structures and routines for age calculation and reasoning.
+*/
 package age
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 
 	"github.com/ironarachne/world/pkg/dice"
 	"github.com/ironarachne/world/pkg/random"
@@ -11,18 +14,18 @@ import (
 
 // Category is metadata about a general age
 type Category struct {
-	Name             string
-	MinAge           int
-	MaxAge           int
-	MaleHeightBase   int
-	FemaleHeightBase int
-	HeightRangeDice  dice.Dice
-	MaleWeightBase   int
-	FemaleWeightBase int
-	WeightModifier int
-	WeightRangeDice  dice.Dice
-	SizeCategory     size.Category
-	Commonality      int
+	Name             string        `json:"name" db:"name"`
+	MinAge           int           `json:"age_min" db:"age_min"`
+	MaxAge           int           `json:"age_max" db:"age_max"`
+	MaleHeightBase   int           `json:"male_height_base" db:"male_height_base"`
+	FemaleHeightBase int           `json:"female_height_base" db:"female_height_base"`
+	HeightRangeDice  dice.Dice     `json:"height_range_dice" db:"height_range_dice"`
+	MaleWeightBase   int           `json:"male_weight_base" db:"male_weight_base"`
+	FemaleWeightBase int           `json:"female_weight_base" db:"female_weight_base"`
+	WeightModifier   int           `json:"weight_modifier" db:"weight_modifier"`
+	WeightRangeDice  dice.Dice     `json:"weight_range_dice" db:"weight_range_dice"`
+	SizeCategory     size.Category `json:"size_category" db:"size_category"`
+	Commonality      int           `json:"commonality" db:"commonality"`
 }
 
 // GetCategoryByName returns the age category given a name
@@ -50,12 +53,12 @@ func GetCategoryFromAge(years int, categories []Category) Category {
 }
 
 // GetRandomAge returns a random age in years within the age category range
-func GetRandomAge(ageCategory Category) int {
-	return rand.Intn(ageCategory.MaxAge-ageCategory.MinAge) + ageCategory.MinAge
+func GetRandomAge(ctx context.Context, ageCategory Category) int {
+	return random.Intn(ctx, ageCategory.MaxAge-ageCategory.MinAge) + ageCategory.MinAge
 }
 
 // GetRandomHeight returns a random weight given the age category and gender
-func GetRandomHeight(gender string, ageCategory Category) int {
+func GetRandomHeight(ctx context.Context, gender string, ageCategory Category) int {
 	var base int
 	if gender == "male" {
 		base = ageCategory.MaleHeightBase
@@ -63,14 +66,14 @@ func GetRandomHeight(gender string, ageCategory Category) int {
 		base = ageCategory.FemaleHeightBase
 	}
 
-	result := dice.Roll(ageCategory.HeightRangeDice)
+	result := dice.Roll(ctx, ageCategory.HeightRangeDice)
 	height := base + result
 
 	return height
 }
 
 // GetRandomWeight returns a random weight given the age category and gender
-func GetRandomWeight(gender string, ageCategory Category) int {
+func GetRandomWeight(ctx context.Context, gender string, ageCategory Category) int {
 	var base int
 	if gender == "male" {
 		base = ageCategory.MaleWeightBase
@@ -78,21 +81,21 @@ func GetRandomWeight(gender string, ageCategory Category) int {
 		base = ageCategory.FemaleWeightBase
 	}
 
-	result := dice.Roll(ageCategory.WeightRangeDice)
+	result := dice.Roll(ctx, ageCategory.WeightRangeDice)
 	weight := base + (ageCategory.WeightModifier * result)
 
 	return weight
 }
 
 // GetWeightedAgeCategory returns a random age category for a race
-func GetWeightedAgeCategory(categories []Category) (Category, error) {
+func GetWeightedAgeCategory(ctx context.Context, categories []Category) (Category, error) {
 	weights := map[string]int{}
 
 	for _, c := range categories {
 		weights[c.Name] = c.Commonality
 	}
 
-	name, err := random.StringFromThresholdMap(weights)
+	name, err := random.StringFromThresholdMap(ctx, weights)
 	if err != nil {
 		err = fmt.Errorf("Failed to get weighted age category: %w", err)
 		return Category{}, err

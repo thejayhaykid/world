@@ -1,12 +1,14 @@
 package charge
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/color"
-	"math/rand"
+	"sort"
 
 	"github.com/fogleman/gg"
+
 	"github.com/ironarachne/world/pkg/graphics"
 	"github.com/ironarachne/world/pkg/heraldry/tincture"
 	"github.com/ironarachne/world/pkg/math"
@@ -15,16 +17,13 @@ import (
 	"github.com/ironarachne/world/pkg/words"
 )
 
-// Charge is a charge
-type Charge struct {
-	Identifier string
-	Name       string
-	Noun       string
-	NounPlural string
-	Descriptor string
-	SingleOnly bool
-	Tags       []string
-	Render     func(bodyTincture tincture.Tincture) image.Image
+const chargeGroupError = "failed to get random charge group: %w"
+
+// Charge is an interface for charges
+type Charge interface {
+	Blazon(count int, tincture string) (string, error)
+	GetTags() []string
+	Render(bodyTincture tincture.Tincture) image.Image
 }
 
 // Group is a group of charges with a common tincture
@@ -35,39 +34,89 @@ type Group struct {
 	Position string
 }
 
-func all() []Charge {
-	charges := []Charge{}
-
-	animals := getAnimalCharges()
-	heavens := getHeavensCharges()
-	objects := getObjectCharges()
+// All returns all charges
+func All() ([]Charge, error) {
+	raster, err := AllRaster()
+	if err != nil {
+		err = fmt.Errorf("failed to load charges: %w", err)
+		return nil, err
+	}
 	ordinaries := getOrdinaryCharges()
-	people := getPeopleCharges()
-	plants := getPlantCharges()
-	charges = append(charges, animals...)
-	charges = append(charges, heavens...)
-	charges = append(charges, objects...)
-	charges = append(charges, ordinaries...)
-	charges = append(charges, people...)
-	charges = append(charges, plants...)
 
-	for _, c := range charges {
-		c.Tags = append(c.Tags, c.Identifier)
+	length := len(raster) + len(ordinaries)
+
+	charges := make([]Charge, length)
+	l := 0
+	for _, v := range raster {
+		charges[l] = Charge(v)
+		l++
+	}
+	for _, v := range ordinaries {
+		charges[l] = Charge(v)
+		l++
 	}
 
-	return charges
+	return charges, nil
 }
 
-func randomNumberOfCharges() (int, error) {
+// AllTags returns all unique charge tags
+func AllTags() ([]string, error) {
+	tags := []string{}
+	ts := []string{}
+
+	charges, err := All()
+	if err != nil {
+		err = fmt.Errorf("failed to get charge tags: %w", err)
+		return []string{}, err
+	}
+
+	for _, c := range charges {
+		ts = c.GetTags()
+		for _, t := range ts {
+			if !slices.StringIn(t, tags) {
+				tags = append(tags, t)
+			}
+		}
+	}
+
+	sort.Strings(tags)
+
+	return tags, nil
+}
+
+func blazonForCharge(count int, singular string, plural string, descriptor string, tincture string) (string, error) {
+	blazon := ""
+
+	if count == 1 {
+		pronoun := words.Pronoun(singular)
+		if descriptor != "" {
+			blazon += pronoun + " " + singular + " " + descriptor + " " + tincture
+		} else {
+			blazon += pronoun + " " + singular + " " + tincture
+		}
+
+	} else if count > 1 {
+		number := words.NumberToWord(count)
+		if descriptor != "" {
+			blazon += number + " " + plural + " " + descriptor + " " + tincture
+		} else {
+			blazon += number + " " + plural + " " + tincture
+		}
+	}
+
+	return blazon, nil
+}
+
+func randomNumberOfCharges(ctx context.Context) (int, error) {
 	possibleValues := map[int]int{
 		1: 10,
 		2: 5,
 		3: 3,
 	}
 
-	value, err := random.IntFromThresholdMap(possibleValues)
+	value, err := random.IntFromThresholdMap(ctx, possibleValues)
 	if err != nil {
-		err = fmt.Errorf("Failed to get random number of charges: %w", err)
+		err = fmt.Errorf("failed to get random number of charges: %w", err)
 		return 0, err
 	}
 
@@ -75,87 +124,92 @@ func randomNumberOfCharges() (int, error) {
 }
 
 // MatchingTag returns all charges that match a tag
-func MatchingTag(tag string) []Charge {
+func MatchingTag(tag string) ([]Charge, error) {
 	matching := []Charge{}
 
-	charges := all()
+	charges, err := All()
+	if err != nil {
+		err = fmt.Errorf("failed to find charges matching tag: %w", err)
+		return nil, err
+	}
 
 	for _, c := range charges {
-		if slices.StringIn(tag, c.Tags) {
+		if slices.StringIn(tag, c.GetTags()) {
 			matching = append(matching, c)
 		}
 	}
 
-	return matching
+	return matching, nil
 }
 
 // Random returns a random charge
-func Random() Charge {
-	charges := all()
+func Random(ctx context.Context) (Charge, error) {
+	charges, err := All()
+	if err != nil {
+		err = fmt.Errorf("failed to get random charge: %w", err)
+		return nil, err
+	}
 
-	return charges[rand.Intn(len(charges))]
+	charge := charges[random.Intn(ctx, len(charges))]
+
+	return charge, nil
 }
 
 // RandomGroup returns a random group of charges
-func RandomGroup(fieldTincture tincture.Tincture) (Group, error) {
-	group := Group{}
-
-	charge := Random()
-
-	numberOfCharges, err := randomNumberOfCharges()
+func RandomGroup(ctx context.Context, fieldTincture tincture.Tincture) (Group, error) {
+	group, err := RandomGroupByParameters(ctx, fieldTincture, "", 0)
 	if err != nil {
-		err = fmt.Errorf("Failed to get random charge group: %w", err)
+		err = fmt.Errorf("failed to get completely random charge group: %w", err)
 		return Group{}, err
 	}
-	if slices.StringIn("full size", charge.Tags) {
-		numberOfCharges = 1
-	}
-	for i := 0; i < numberOfCharges; i++ {
-		group.Charges = append(group.Charges, charge)
-	}
-	t, err := tincture.RandomContrasting(fieldTincture, false)
-	if err != nil {
-		err = fmt.Errorf("Failed to get random charge group: %w", err)
-		return Group{}, err
-	}
-	group.Tincture = t
-	p, err := randomChargePosition()
-	if err != nil {
-		err = fmt.Errorf("Failed to get random charge group: %w", err)
-		return Group{}, err
-	}
-	group.Position = p
 
 	return group, nil
 }
 
-// SpecificGroup returns a charge group with a given tag and number of elements
-func SpecificGroup(fieldTincture tincture.Tincture, tag string, numberOfCharges int) (Group, error) {
+// RandomGroupByParameters returns a charge group matching the given parameters. Blank or zero values will return random results for the given parameter.
+func RandomGroupByParameters(ctx context.Context, fieldTincture tincture.Tincture, tag string, numberOfCharges int) (Group, error) {
+	var chargeObject Charge
+	var err error
 	group := Group{}
 
 	var charges []Charge
-	chargeObject, err := RandomMatchingTag(tag)
+	if tag == "" {
+		chargeObject, err = Random(ctx)
+	} else {
+		chargeObject, err = RandomMatchingTag(ctx, tag)
+	}
 	if err != nil {
-		err = fmt.Errorf("Failed to get specific charge group: %w", err)
+		err = fmt.Errorf(chargeGroupError, err)
 		return Group{}, err
 	}
 
-	if slices.StringIn("full size", chargeObject.Tags) {
+	if numberOfCharges == 0 {
+		numberOfCharges, err = randomNumberOfCharges(ctx)
+	}
+	if err != nil {
+		err = fmt.Errorf(chargeGroupError, err)
+		return Group{}, err
+	}
+
+	if slices.StringIn("full size", chargeObject.GetTags()) {
 		numberOfCharges = 1
 	}
+
 	for i := 0; i < numberOfCharges; i++ {
 		charges = append(charges, chargeObject)
 	}
+
 	group.Charges = charges
-	t, err := tincture.RandomContrasting(fieldTincture, false)
+	t, err := tincture.RandomContrasting(ctx, fieldTincture, false)
 	if err != nil {
-		err = fmt.Errorf("Failed to get specific charge group: %w", err)
+		err = fmt.Errorf(chargeGroupError, err)
 		return Group{}, err
 	}
+
 	group.Tincture = t
-	p, err := randomChargePosition()
+	p, err := randomChargePosition(ctx)
 	if err != nil {
-		err = fmt.Errorf("Failed to get specific charge group: %w", err)
+		err = fmt.Errorf(chargeGroupError, err)
 		return Group{}, err
 	}
 	group.Position = p
@@ -164,32 +218,36 @@ func SpecificGroup(fieldTincture tincture.Tincture, tag string, numberOfCharges 
 }
 
 // RandomMatchingTag returns a random charge that matches a tag
-func RandomMatchingTag(tag string) (Charge, error) {
-	charges := MatchingTag(tag)
+func RandomMatchingTag(ctx context.Context, tag string) (Charge, error) {
+	charges, err := MatchingTag(tag)
+	if err != nil {
+		err = fmt.Errorf("failed to find random charge matching tag: %w", err)
+		return nil, err
+	}
 
 	if len(charges) == 0 {
-		err := fmt.Errorf("Failed to find charge matching tag " + tag)
-		return Charge{}, err
+		err := fmt.Errorf("failed to find random charge matching tag " + tag)
+		return nil, err
 	}
 
 	if len(charges) == 1 {
 		return charges[0], nil
 	}
 
-	charge := charges[rand.Intn(len(charges))]
+	charge := charges[random.Intn(ctx, len(charges))]
 	return charge, nil
 }
 
-func randomChargePosition() (string, error) {
+func randomChargePosition(ctx context.Context) (string, error) {
 	positions := map[string]int{
 		"in fess":  30,
 		"in chief": 2,
 		"in base":  1,
 	}
 
-	position, err := random.StringFromThresholdMap(positions)
+	position, err := random.StringFromThresholdMap(ctx, positions)
 	if err != nil {
-		err = fmt.Errorf("Failed to get random charge position: %w", err)
+		err = fmt.Errorf("failed to get random charge position: %w", err)
 		return "", err
 	}
 
@@ -233,7 +291,7 @@ func RenderChargeFromFile(name string, t tincture.Tincture) image.Image {
 }
 
 // RenderPNG renders a charge group
-func (group Group) RenderPNG(width int, height int) image.Image {
+func (group Group) RenderPNG(ctx context.Context, width int, height int) image.Image {
 	var scaleFactor float64
 	var scaleHeight int
 	var scaleWidth int
@@ -249,7 +307,7 @@ func (group Group) RenderPNG(width int, height int) image.Image {
 
 	numberOfCharges := len(group.Charges)
 
-	if slices.StringIn("full size", group.Charges[0].Tags) {
+	if slices.StringIn("full size", group.Charges[0].GetTags()) {
 		sh := float64(height) / float64(chargeHeight)
 		sw := float64(width) / float64(chargeWidth)
 		dc.Scale(sw, sh)
@@ -266,7 +324,7 @@ func (group Group) RenderPNG(width int, height int) image.Image {
 			scaleHeight = int(float64(height) / scaleFactor)
 			scaleWidth = int(float64(width) / scaleFactor)
 			dc.Scale(scaleFactor, scaleFactor)
-			alignment := rand.Intn(100)
+			alignment := random.Intn(ctx, 100)
 			if alignment > 80 {
 				dc.DrawImageAnchored(c, scaleWidth/4, scaleHeight/2, 0.5, 0.5)
 				dc.DrawImageAnchored(c, (scaleWidth * 3 / 4), scaleHeight/2, 0.5, 0.5)
@@ -289,20 +347,14 @@ func (group Group) RenderPNG(width int, height int) image.Image {
 }
 
 // RenderBlazon returns a string description of the blazon of a charge group
-func (group Group) RenderBlazon() string {
-	blazon := ""
-
+func (group Group) RenderBlazon() (string, error) {
 	count := len(group.Charges)
 
-	if count == 0 {
-		blazon = ""
-	} else if count == 1 {
-		blazon += words.Pronoun(group.Charges[0].Noun) + " " + group.Charges[0].Name + " " + group.Tincture.Name
-	} else if count == 2 {
-		blazon += "two " + group.Charges[0].NounPlural + " " + group.Charges[0].Descriptor + " " + group.Tincture.Name
-	} else if count == 3 {
-		blazon += "three " + group.Charges[0].NounPlural + " " + group.Charges[0].Descriptor + " " + group.Tincture.Name
+	blazon, err := group.Charges[0].Blazon(count, group.Tincture.Name)
+	if err != nil {
+		err = fmt.Errorf("failed to render blazon for charge group: %w", err)
+		return "", err
 	}
 
-	return blazon
+	return blazon, nil
 }

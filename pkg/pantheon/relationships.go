@@ -1,16 +1,17 @@
 package pantheon
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 
 	"github.com/ironarachne/world/pkg/pantheon/deity"
 	"github.com/ironarachne/world/pkg/random"
 	"github.com/ironarachne/world/pkg/relationship"
+	"github.com/ironarachne/world/pkg/words"
 )
 
 // GenerateRelationships generates relationships between deities
-func (pantheon Pantheon) GenerateRelationships() ([]deity.Deity, error) {
+func (pantheon Pantheon) GenerateRelationships(ctx context.Context) ([]deity.Deity, error) {
 	var modifiedDeities []deity.Deity
 	var numberOfRelationships int
 	var possibleDeities []deity.Deity
@@ -18,21 +19,21 @@ func (pantheon Pantheon) GenerateRelationships() ([]deity.Deity, error) {
 	var ir relationship.Relationship
 	var rt relationship.Type
 	var relationshipAllowed bool
+	var allRelationships []relationship.Relationship
+	var phrases []string
 
 	rts := relationship.AllTypes()
-
-	allRelationships := []relationship.Relationship{}
 
 	for _, d := range pantheon.Deities {
 		possibleDeities = deity.Exclude(d, pantheon.Deities)
 
-		numberOfRelationships = rand.Intn(3)
+		numberOfRelationships = random.Intn(ctx, 3)
 		for i := 0; i < numberOfRelationships; i++ {
-			target, err := deity.Random(possibleDeities)
-			rt = rts[rand.Intn(len(rts))]
-			descriptor, err := random.String(rt.Descriptors)
+			target, err := deity.Random(ctx, possibleDeities)
+			rt = rts[random.Intn(ctx, len(rts))]
+			descriptor, err := random.String(ctx, rt.Descriptors)
 			if err != nil {
-				err = fmt.Errorf("Could not generate deity relationships: %w", err)
+				err = fmt.Errorf("failed to generate relationship descriptor: %w", err)
 				return []deity.Deity{}, err
 			}
 
@@ -50,14 +51,14 @@ func (pantheon Pantheon) GenerateRelationships() ([]deity.Deity, error) {
 				}
 			}
 			r = relationship.Relationship{Origin: d.Name, Target: target.Name, Descriptor: descriptor, Type: rt.Name}
-			ir, err = relationship.GetInverse(r)
+			ir, err = relationship.GetInverse(ctx, r)
 			if err != nil {
-				err = fmt.Errorf("Could not generate deity relationships: %w", err)
+				err = fmt.Errorf("failed to generate inverse relationship: %w", err)
 				return []deity.Deity{}, err
 			}
 			relationshipAllowed, err = relationship.AllowedIn(r, allRelationships)
 			if err != nil {
-				err = fmt.Errorf("Could not generate deity relationships: %w", err)
+				err = fmt.Errorf("failed to see if deity relationship is allowed: %w", err)
 				return []deity.Deity{}, err
 			}
 			if !relationship.InSlice(r, allRelationships) && relationshipAllowed {
@@ -72,12 +73,24 @@ func (pantheon Pantheon) GenerateRelationships() ([]deity.Deity, error) {
 	for _, r := range allRelationships {
 		d, err := deity.ByName(r.Origin, modifiedDeities)
 		if err != nil {
-			err = fmt.Errorf("Could not generate deity relationships: %w", err)
+			err = fmt.Errorf("failed to find deity by name: %w", err)
 			return []deity.Deity{}, err
 		}
 
 		d.Relationships = append(d.Relationships, r)
+
 		modifiedDeities = deity.Replace(d, modifiedDeities)
+	}
+
+	for _, d := range modifiedDeities {
+		if len(d.Relationships) > 0 {
+			phrases = []string{}
+			for _, r := range d.Relationships {
+				phrases = append(phrases, r.Descriptor+" "+r.Target)
+			}
+			d.Description += d.Name + " " + words.CombinePhrases(phrases) + "."
+			modifiedDeities = deity.Replace(d, modifiedDeities)
+		}
 	}
 
 	return modifiedDeities, nil

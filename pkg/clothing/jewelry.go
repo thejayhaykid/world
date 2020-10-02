@@ -1,33 +1,49 @@
 package clothing
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 
-	"github.com/ironarachne/world/pkg/climate"
 	"github.com/ironarachne/world/pkg/random"
-	"github.com/ironarachne/world/pkg/resource"
 )
 
-func generateJewelry(originClimate climate.Climate) ([]string, error) {
+const jewelryError = "failed to generate jewelry: %w"
+
+func generateJewelry(ctx context.Context) ([]string, error) {
+	var chanceOfAdornment int
 	var descriptor string
 	var err error
-	var foundation string
-	var gemProbability int
 	var jewelryItem string
+	var itemType string
 	var setting string
 
 	jewelry := []string{}
 
+	mainMaterials := []string{
+		"metal",
+		"hide",
+		"bone",
+	}
+
+	secondaryComponents := []string{
+		"gems",
+		"beads",
+	}
+
 	descriptors := []string{
 		"brilliant",
+		"entwined",
 		"gaudy",
+		"large",
 		"lustrous",
 		"ornate",
 		"simple",
+		"straight",
+		"thin",
+		"twisting",
 	}
 
-	foundations := []string{
+	itemTypes := []string{
 		"anklets",
 		"bracelets",
 		"chokers",
@@ -41,36 +57,40 @@ func generateJewelry(originClimate climate.Climate) ([]string, error) {
 		"set with",
 	}
 
-	metals := resource.ByTag("metal ore", originClimate.Resources)
-	gems := resource.ByTag("gem ore", originClimate.Resources)
+	numberOfJewelryPieces := random.Intn(ctx, 4) + 1
 
-	numberOfJewelryPieces := rand.Intn(4) + 1
-
-	primaryMaterial := resource.Random(metals)
-	primaryGem := resource.Random(gems)
+	primaryMaterial, err := random.String(ctx, mainMaterials)
+	if err != nil {
+		err = fmt.Errorf(jewelryError, err)
+		return []string{}, err
+	}
+	primaryComponent, err := random.String(ctx, secondaryComponents)
+	if err != nil {
+		err = fmt.Errorf(jewelryError, err)
+		return []string{}, err
+	}
 
 	for i := 0; i < numberOfJewelryPieces; i++ {
-		descriptor, err = random.String(descriptors)
+		descriptor, err = random.String(ctx, descriptors)
 		if err != nil {
-			err = fmt.Errorf("Could not generate jewelry: %w", err)
+			err = fmt.Errorf(jewelryError, err)
 			return []string{}, err
 		}
-		foundation, err = random.String(foundations)
+		itemType, err = random.String(ctx, itemTypes)
 		if err != nil {
-			err = fmt.Errorf("Could not generate jewelry: %w", err)
+			err = fmt.Errorf(jewelryError, err)
 			return []string{}, err
 		}
-		setting, err = random.String(settings)
+		setting, err = random.String(ctx, settings)
 		if err != nil {
-			err = fmt.Errorf("Could not generate jewelry: %w", err)
+			err = fmt.Errorf(jewelryError, err)
 			return []string{}, err
 		}
-		jewelryItem = descriptor + " " + primaryMaterial.Name + " " + foundation
-		if len(gems) > 0 {
-			gemProbability = rand.Intn(10) + 1
-			if gemProbability > 5 {
-				jewelryItem += " " + setting + " " + primaryGem.Name
-			}
+		jewelryItem = descriptor + " " + primaryMaterial + " " + itemType
+
+		chanceOfAdornment = random.Intn(ctx, 100)
+		if chanceOfAdornment > 50 {
+			jewelryItem += " " + setting + " " + primaryComponent
 		}
 
 		jewelry = append(jewelry, jewelryItem)

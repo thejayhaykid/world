@@ -1,90 +1,74 @@
+/*
+Package clothing provides methods and tools for generating
+fantasy clothing styles.
+*/
 package clothing
 
 import (
+	"context"
 	"fmt"
+	"github.com/ironarachne/world/pkg/geography"
 
-	"github.com/ironarachne/world/pkg/climate"
 	"github.com/ironarachne/world/pkg/random"
 	"github.com/ironarachne/world/pkg/resource"
 	"github.com/ironarachne/world/pkg/slices"
 )
 
+const clothingError = "failed to generate clothing style: %w"
+
 // Style describes what kind of clothing the culture wears
 type Style struct {
-	FemaleOutfit    []Item
-	MaleOutfit      []Item
-	CommonJewelry   []string
-	CommonColors    []string
-	DecorativeStyle string
+	Description     string   `json:"description"`
+	FemaleOutfit    []Item   `json:"female_outfit"`
+	MaleOutfit      []Item   `json:"male_outfit"`
+	CommonJewelry   []string `json:"common_jewelry"`
+	CommonColors    []string `json:"common_colors"`
+	DecorativeStyle string   `json:"decorative_style"`
 }
 
 // GenerateStyle generates a random clothing style based on a climate
-func GenerateStyle(originClimate climate.Climate) (Style, error) {
+func GenerateStyle(ctx context.Context, temperature int, resources []resource.Resource) (Style, error) {
 	style := Style{}
 
-	hides := getHides(originClimate)
-	fabrics := getFabrics(originClimate)
-
-	femaleOutfit, err := GenerateOutfit(originClimate.Temperature, hides, fabrics, "female")
+	femaleOutfit, err := GenerateOutfit(ctx, temperature, "female")
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing style: %w", err)
+		err = fmt.Errorf(clothingError, err)
 		return Style{}, err
 	}
 	style.FemaleOutfit = femaleOutfit
-	maleOutfit, err := GenerateOutfit(originClimate.Temperature, hides, fabrics, "male")
+	maleOutfit, err := GenerateOutfit(ctx, temperature, "male")
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing style: %w", err)
+		err = fmt.Errorf(clothingError, err)
 		return Style{}, err
 	}
 	style.MaleOutfit = maleOutfit
 
-	jewelry, err := generateJewelry(originClimate)
+	jewelry, err := generateJewelry(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing style: %w", err)
+		err = fmt.Errorf(clothingError, err)
 		return Style{}, err
 	}
 	style.CommonJewelry = jewelry
 
-	decorativeStyle, err := randomDecorativeStyle(originClimate)
+	decorativeStyle, err := randomDecorativeStyle(ctx, resources)
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing style: %w", err)
+		err = fmt.Errorf(clothingError, err)
 		return Style{}, err
 	}
 	style.DecorativeStyle = decorativeStyle
 
-	colors, err := randomColorSet()
+	colors, err := randomColorSet(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing style: %w", err)
+		err = fmt.Errorf(clothingError, err)
 		return Style{}, err
 	}
 	style.CommonColors = colors
+	style.Description = style.Describe(ctx)
 
 	return style, nil
 }
 
-func getFabrics(originClimate climate.Climate) []string {
-	resources := resource.ByTag("fabric fiber", originClimate.Resources)
-	fabrics := []string{}
-
-	for _, r := range resources {
-		fabrics = append(fabrics, r.Name)
-	}
-
-	return fabrics
-}
-
-func getHides(originClimate climate.Climate) []string {
-	resources := resource.ByTag("hide", originClimate.Resources)
-	hides := []string{}
-
-	for _, i := range resources {
-		hides = append(hides, i.Name)
-	}
-
-	return hides
-}
-
-func randomDecorativeStyle(originClimate climate.Climate) (string, error) {
+func randomDecorativeStyle(ctx context.Context, resources []resource.Resource) (string, error) {
 	styles := []string{
 		"beads",
 		"complex embroidery",
@@ -97,30 +81,26 @@ func randomDecorativeStyle(originClimate climate.Climate) (string, error) {
 		"tassels",
 	}
 
-	ivory := resource.ByTag("ivory", originClimate.Resources)
+	ivory := resource.ByTag("ivory", resources)
 	if len(ivory) > 0 {
 		styles = append(styles, "ivory decorations")
 	}
 
-	feathers := resource.ByTag("feather", originClimate.Resources)
+	feathers := resource.ByTag("feather", resources)
 	if len(feathers) > 0 {
 		styles = append(styles, "feather decorations")
 	}
 
-	if originClimate.Temperature < 6 {
-		styles = append(styles, "many layers")
-	}
-
-	style, err := random.String(styles)
+	style, err := random.String(ctx, styles)
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing decorative style: %w", err)
+		err = fmt.Errorf("failed to generate clothing decorative style: %w", err)
 		return "", err
 	}
 
 	return style, nil
 }
 
-func randomColorSet() ([]string, error) {
+func randomColorSet(ctx context.Context) ([]string, error) {
 	var colorSet []string
 	var err error
 	var newColor string
@@ -139,14 +119,14 @@ func randomColorSet() ([]string, error) {
 	}
 
 	for i := 0; i < 3; i++ {
-		newColor, err = random.String(colors)
+		newColor, err = random.String(ctx, colors)
 		if err != nil {
 			err = fmt.Errorf("Could not generate color set: %w", err)
 			return []string{}, err
 		}
 
 		if !slices.StringIn(newColor, []string{"white", "black"}) {
-			saturation, err = randomSaturation()
+			saturation, err = randomSaturation(ctx)
 			if err != nil {
 				err = fmt.Errorf("Could not generate color set: %w", err)
 				return []string{}, err
@@ -162,7 +142,7 @@ func randomColorSet() ([]string, error) {
 	return colorSet, nil
 }
 
-func randomSaturation() (string, error) {
+func randomSaturation(ctx context.Context) (string, error) {
 	saturations := []string{
 		"bright",
 		"dark",
@@ -172,7 +152,7 @@ func randomSaturation() (string, error) {
 		"subdued",
 	}
 
-	saturation, err := random.String(saturations)
+	saturation, err := random.String(ctx, saturations)
 	if err != nil {
 		err = fmt.Errorf("Could not generate saturation: %w", err)
 		return "", err
@@ -182,16 +162,18 @@ func randomSaturation() (string, error) {
 }
 
 // Random generates a completely random clothing style
-func Random() (Style, error) {
-	originClimate, err := climate.Random()
+func Random(ctx context.Context) (Style, error) {
+	area, err := geography.Generate(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing style: %w", err)
+		err = fmt.Errorf(clothingError, err)
 		return Style{}, err
 	}
 
-	style, err := GenerateStyle(originClimate)
+	resources := area.GetResources()
+
+	style, err := GenerateStyle(ctx, area.Region.Temperature, resources)
 	if err != nil {
-		err = fmt.Errorf("Could not generate clothing style: %w", err)
+		err = fmt.Errorf(clothingError, err)
 		return Style{}, err
 	}
 

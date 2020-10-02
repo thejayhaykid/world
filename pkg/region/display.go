@@ -1,6 +1,7 @@
 package region
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ironarachne/world/pkg/character"
@@ -11,40 +12,40 @@ import (
 
 // SimplifiedRegion is a simplified version of a region
 type SimplifiedRegion struct {
-	Name            string                                `json:"name"`
-	Climate         string                                `json:"climate"`
-	Capital         string                                `json:"capital"`
-	DominantCulture culture.SimplifiedCulture             `json:"dominant_culture"`
-	Ruler           character.SimplifiedCharacter         `json:"ruler"`
-	RulingHouse     organization.SimplifiedOrganization   `json:"ruling_house"`
-	Towns           []town.SimplifiedTown                 `json:"towns"`
-	Organizations   []organization.SimplifiedOrganization `json:"organizations"`
+	Name                 string                                `json:"name"`
+	GeographyDescription string                                `json:"geography_description"`
+	Capital              string                                `json:"capital"`
+	DominantCulture      culture.Culture                       `json:"dominant_culture"`
+	Ruler                character.SimplifiedCharacter         `json:"ruler"`
+	RulingHouse          organization.SimplifiedOrganization   `json:"ruling_house"`
+	Towns                []town.SimplifiedTown                 `json:"towns"`
+	Organizations        []organization.SimplifiedOrganization `json:"organizations"`
 }
 
 // Simplify returns a simplified version of a region
-func (region Region) Simplify() (SimplifiedRegion, error) {
-	sc := region.Culture.Simplify()
-	sr, err := region.RulingBody.Leader.CharacterData.Simplify()
+func (region Region) Simplify(ctx context.Context) (SimplifiedRegion, error) {
+	sc := region.Culture
+	sr, err := region.RulingBody.Leader.CharacterData.Simplify(ctx)
 	if err != nil {
 		err = fmt.Errorf("Could not generate simplified region: %w", err)
 		return SimplifiedRegion{}, err
 	}
-	so, err := region.RulingBody.Simplify()
+	so, err := region.RulingBody.Simplify(ctx)
 	if err != nil {
 		err = fmt.Errorf("Could not generate simplified region: %w", err)
 		return SimplifiedRegion{}, err
 	}
 	simplified := SimplifiedRegion{
-		Name:            "The " + region.Class.Name + " of " + region.Name,
-		Climate:         region.Climate.Description,
-		Capital:         region.Capital,
-		DominantCulture: sc,
-		Ruler:           sr,
-		RulingHouse:     so,
+		Name:                 "The " + region.Class.Name + " of " + region.Name,
+		GeographyDescription: region.AreaDescription,
+		Capital:              region.Capital,
+		DominantCulture:      sc,
+		Ruler:                sr,
+		RulingHouse:          so,
 	}
 
 	for _, t := range region.Towns {
-		st, err := t.Simplify()
+		st, err := t.Simplify(ctx)
 		if err != nil {
 			err = fmt.Errorf("Could not generate simplified region: %w", err)
 			return SimplifiedRegion{}, err
@@ -53,7 +54,7 @@ func (region Region) Simplify() (SimplifiedRegion, error) {
 	}
 
 	for _, o := range region.Organizations {
-		so, err := o.Simplify()
+		so, err := o.Simplify(ctx)
 		if err != nil {
 			err = fmt.Errorf("Could not generate simplified region: %w", err)
 			return SimplifiedRegion{}, err
@@ -65,14 +66,14 @@ func (region Region) Simplify() (SimplifiedRegion, error) {
 }
 
 // RandomSimplified generates a completely random region
-func RandomSimplified() (SimplifiedRegion, error) {
-	region, err := Random()
+func RandomSimplified(ctx context.Context) (SimplifiedRegion, error) {
+	region, err := Random(ctx)
 	if err != nil {
 		err = fmt.Errorf("Could not generate simplified region: %w", err)
 		return SimplifiedRegion{}, err
 	}
 
-	rs, err := region.Simplify()
+	rs, err := region.Simplify(ctx)
 	if err != nil {
 		err = fmt.Errorf("Could not generate simplified region: %w", err)
 		return SimplifiedRegion{}, err

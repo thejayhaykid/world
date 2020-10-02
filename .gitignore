@@ -1,4 +1,6 @@
 /build/
+data.db
 .vscode
 worldapi.exe
-.idea/workspace.xml
+.idea
+

@@ -1,17 +1,18 @@
 package character
 
 import (
-	"math/rand"
+	"context"
 
 	"github.com/ironarachne/world/pkg/age"
+	"github.com/ironarachne/world/pkg/random"
+	"github.com/ironarachne/world/pkg/slices"
 )
 
 // Hobby is a pasttime
 type Hobby struct {
-	Name           string
-	RequiresOthers bool
-	IsAdultOnly    bool
-	IsChildOnly    bool
+	Name                  string
+	RequiresOthers        bool
+	PossibleAgeCategories []string
 }
 
 func getAllHobbies() []Hobby {
@@ -19,92 +20,163 @@ func getAllHobbies() []Hobby {
 		{
 			Name:           "archery",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
 		},
 		{
 			Name:           "carving",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
+		},
+		{
+			Name:           "composing poetry",
+			RequiresOthers: false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
+		},
+		{
+			Name:           "composing stories",
+			RequiresOthers: false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
 		},
 		{
 			Name:           "dancing",
 			RequiresOthers: true,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
-		},
-		{
-			Name:           "darts",
-			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
 		},
 		{
 			Name:           "drinking",
 			RequiresOthers: false,
-			IsAdultOnly:    true,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
 		},
 		{
 			Name:           "feasting",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
 		},
 		{
 			Name:           "fishing",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
 		},
 		{
 			Name:           "gambling",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
-		},
-		{
-			Name:           "games of strategy",
-			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
 		},
 		{
 			Name:           "hawking",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
 		},
 		{
 			Name:           "hunting",
 			RequiresOthers: false,
-			IsAdultOnly:    true,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
 		},
 		{
 			Name:           "painting",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
 		},
 		{
 			Name:           "participating in tournaments",
 			RequiresOthers: false,
-			IsAdultOnly:    true,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
+		},
+		{
+			Name:           "playing darts",
+			RequiresOthers: false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
+		},
+		{
+			Name:           "playing games of strategy",
+			RequiresOthers: false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+			},
 		},
 		{
 			Name:           "watching tournaments",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
 		},
 		{
 			Name:           "whittling",
 			RequiresOthers: false,
-			IsAdultOnly:    false,
-			IsChildOnly:    false,
+			PossibleAgeCategories: []string{
+				"adult",
+				"elderly",
+				"young adult",
+				"child",
+			},
 		},
 	}
 
@@ -115,30 +187,24 @@ func getHobbiesForAgeCategory(category age.Category) []Hobby {
 	potentialHobbies := getAllHobbies()
 	hobbies := []Hobby{}
 
-	if category.Name == "infant" {
-		hobbies = []Hobby{}
-	} else if category.Name == "child" {
-		for _, h := range potentialHobbies {
-			if !h.IsAdultOnly {
-				hobbies = append(hobbies, h)
-			}
-		}
-	} else {
-		for _, h := range potentialHobbies {
-			if !h.IsChildOnly {
-				hobbies = append(hobbies, h)
-			}
+	for _, h := range potentialHobbies {
+		if slices.StringIn(category.Name, h.PossibleAgeCategories) {
+			hobbies = append(hobbies, h)
 		}
 	}
 
 	return hobbies
 }
 
-func (character Character) getRandomHobby() Hobby {
+func (character Character) getRandomHobby(ctx context.Context) Hobby {
 	hobbies := getHobbiesForAgeCategory(character.AgeCategory)
 
-	if len(hobbies) > 0 {
-		return hobbies[rand.Intn(len(hobbies))]
+	if len(hobbies) == 1 {
+		return hobbies[0]
+	}
+
+	if len(hobbies) > 1 {
+		return hobbies[random.Intn(ctx, len(hobbies))]
 	}
 
 	return Hobby{}

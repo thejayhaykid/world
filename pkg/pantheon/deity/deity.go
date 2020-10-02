@@ -1,8 +1,8 @@
 package deity
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 
 	"github.com/ironarachne/world/pkg/gender"
 	"github.com/ironarachne/world/pkg/language"
@@ -13,17 +13,20 @@ import (
 
 // Deity is a fictional god or goddess
 type Deity struct {
-	Name              string
-	Domains           []domain.Domain
-	Appearance        string
-	Gender            gender.Gender
-	PersonalityTraits []string
-	Relationships     []relationship.Relationship
-	HolyItem          string
-	HolySymbol        string
+	Name              string                      `json:"name"`
+	Description       string                      `json:"description"`
+	Domains           []domain.Domain             `json:"domains"`
+	Appearance        string                      `json:"appearance"`
+	Gender            gender.Gender               `json:"gender"`
+	PersonalityTraits []string                    `json:"personality_traits"`
+	Relationships     []relationship.Relationship `json:"relationships"`
+	HolyItem          string                      `json:"holy_item"`
+	HolySymbol        string                      `json:"holy_symbol"`
 }
 
-func (deity Deity) getRandomHolyItem() (string, error) {
+const deityError = "failed to generate deity: %w"
+
+func (deity Deity) getRandomHolyItem(ctx context.Context) (string, error) {
 	options := []string{
 		"amulet",
 		"necklace",
@@ -36,7 +39,7 @@ func (deity Deity) getRandomHolyItem() (string, error) {
 		options = append(options, d.HolyItems...)
 	}
 
-	holyItem, err := random.String(options)
+	holyItem, err := random.String(ctx, options)
 	if err != nil {
 		err = fmt.Errorf("Could not generate random holy item: %w", err)
 		return "", err
@@ -61,7 +64,7 @@ func getGenericHolySymbols() []string {
 	return options
 }
 
-func (deity Deity) getRandomHolySymbol() (string, error) {
+func (deity Deity) getRandomHolySymbol(ctx context.Context) (string, error) {
 	options := []string{}
 	genericOptions := getGenericHolySymbols()
 
@@ -76,7 +79,7 @@ func (deity Deity) getRandomHolySymbol() (string, error) {
 		}
 	}
 
-	holySymbol, err := random.String(options)
+	holySymbol, err := random.String(ctx, options)
 	if err != nil {
 		err = fmt.Errorf("Could not generate random holy symbol: %w", err)
 		return "", err
@@ -112,15 +115,16 @@ func Exclude(deity Deity, set []Deity) []Deity {
 }
 
 // Generate generates a random deity
-func Generate(lang language.Language, possibleDomains []domain.Domain) (Deity, error) {
+func Generate(ctx context.Context, lang language.Language, possibleDomains []domain.Domain) (Deity, error) {
 	var deity Deity
 	var d domain.Domain
 	var err error
+	var name string
 
-	numberOfDomains := rand.Intn(3) + 1
+	numberOfDomains := random.Intn(ctx, 3) + 1
 
 	for i := 0; i < numberOfDomains; i++ {
-		d, err = domain.Random(possibleDomains)
+		d, err = domain.Random(ctx, possibleDomains)
 
 		// Only add domain if it isn't already in Domains slice
 		if !domain.InSlice(d, deity.Domains) {
@@ -128,55 +132,71 @@ func Generate(lang language.Language, possibleDomains []domain.Domain) (Deity, e
 		}
 	}
 
-	appearances, err := getRandomGeneralAppearances(3)
+	appearances, err := getRandomGeneralAppearances(ctx, 3)
 	if err != nil {
-		err = fmt.Errorf("Could not generate deity: %w", err)
+		err = fmt.Errorf(deityError, err)
 		return Deity{}, err
 	}
 	appearances = append(appearances, domain.AllAppearancesForDomains(deity.Domains)...)
 
-	appearance, err := random.String(appearances)
+	appearance, err := random.String(ctx, appearances)
 	if err != nil {
-		err = fmt.Errorf("Could not generate deity: %w", err)
+		err = fmt.Errorf(deityError, err)
 		return Deity{}, err
 	}
 	deity.Appearance = appearance
-	deity.Gender = gender.Random()
+	deity.Gender = gender.Random(ctx)
 
-	traits, err := deity.getRandomTraits()
+	traits, err := deity.getRandomTraits(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate deity: %w", err)
+		err = fmt.Errorf(deityError, err)
 		return Deity{}, err
 	}
 	deity.PersonalityTraits = traits
 
-	holyItem, err := deity.getRandomHolyItem()
+	holyItem, err := deity.getRandomHolyItem(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate deity: %w", err)
+		err = fmt.Errorf(deityError, err)
 		return Deity{}, err
 	}
 	deity.HolyItem = holyItem
-	holySymbol, err := deity.getRandomHolySymbol()
+	holySymbol, err := deity.getRandomHolySymbol(ctx)
 	if err != nil {
-		err = fmt.Errorf("Could not generate deity: %w", err)
+		err = fmt.Errorf(deityError, err)
 		return Deity{}, err
 	}
 	deity.HolySymbol = holySymbol
 
-	name, err := lang.RandomGenderedName(deity.Gender.Name)
-	if err != nil {
-		err = fmt.Errorf("Could not generate deity: %w", err)
-		return Deity{}, err
+	if deity.Gender.Name == "female" {
+		name, err = lang.RandomFemaleFirstName(ctx)
+		if err != nil {
+			err = fmt.Errorf(deityError, err)
+			return Deity{}, err
+		}
+	} else if deity.Gender.Name == "male" {
+		name, err = lang.RandomMaleFirstName(ctx)
+		if err != nil {
+			err = fmt.Errorf(deityError, err)
+			return Deity{}, err
+		}
+	} else {
+		name, err = lang.RandomFemaleFirstName(ctx)
+		if err != nil {
+			err = fmt.Errorf(deityError, err)
+			return Deity{}, err
+		}
 	}
+
 	deity.Name = name
+	deity.Description = deity.Describe()
 
 	return deity, nil
 }
 
 // Random returns a random deity from a set
-func Random(set []Deity) (Deity, error) {
+func Random(ctx context.Context, set []Deity) (Deity, error) {
 	if len(set) == 0 {
-		err := fmt.Errorf("Tried to get a random deity from an empty set")
+		err := fmt.Errorf("tried to get a random deity from an empty set")
 		return Deity{}, err
 	}
 
@@ -184,7 +204,7 @@ func Random(set []Deity) (Deity, error) {
 		return set[0], nil
 	}
 
-	deity := set[rand.Intn(len(set))]
+	deity := set[random.Intn(ctx, len(set))]
 
 	return deity, nil
 }

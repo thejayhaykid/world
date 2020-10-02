@@ -1,8 +1,12 @@
+/*
+Package drink provides methods and tools for generating
+fantasy drink styles.
+*/
 package drink
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 
 	"github.com/ironarachne/world/pkg/random"
 	"github.com/ironarachne/world/pkg/resource"
@@ -12,15 +16,15 @@ import (
 
 // Drink is an alcoholic drink
 type Drink struct {
-	Description string
-	Appearance  string
-	Type        string
-	Strength    string
-	Base        string
-	Ingredients []string
+	Description string   `json:"description"`
+	Appearance  string   `json:"appearance"`
+	Type        string   `json:"type"`
+	Strength    string   `json:"strength"`
+	Base        string   `json:"base"`
+	Ingredients []string `json:"ingredients"`
 }
 
-func (drink Drink) describe() string {
+func (drink Drink) describe(ctx context.Context) string {
 	description := ""
 
 	if drink.Strength != "" {
@@ -33,7 +37,7 @@ func (drink Drink) describe() string {
 		description += " made with " + words.CombinePhrases(drink.Ingredients)
 	}
 
-	phraseChance := rand.Intn(10)
+	phraseChance := random.Intn(ctx, 10)
 
 	phrase := "that's"
 
@@ -46,7 +50,7 @@ func (drink Drink) describe() string {
 	return description
 }
 
-func getRandomStrength(minimum int) string {
+func getRandomStrength(ctx context.Context, minimum int) string {
 	var strengths []string
 	allStrengths := []string{
 		"very weak",
@@ -62,19 +66,20 @@ func getRandomStrength(minimum int) string {
 		}
 	}
 
-	strength := strengths[rand.Intn(len(strengths))]
+	strength := strengths[random.Intn(ctx, len(strengths))]
 
 	return strength
 }
 
 // Random returns a random alcoholic drink
-func Random(resources []resource.Resource) (Drink, error) {
+func Random(ctx context.Context, resources []resource.Resource) (Drink, error) {
 	var base resource.Resource
 	var ingredient string
 	var ingredients []string
 	var numberOfIngredients int
 	var pattern Pattern
 	var possibleIngredients []string
+	var err error
 
 	spices := resource.ByTag("spice", resources)
 	herbs := resource.ByTag("herb", resources)
@@ -83,16 +88,17 @@ func Random(resources []resource.Resource) (Drink, error) {
 	patterns := getValidPatterns(resources)
 
 	if len(patterns) == 0 {
-		panic("Not enough valid drink patterns!")
+		err = fmt.Errorf("not enough valid drink patterns for given resources")
+		return Drink{}, err
 	} else if len(patterns) == 1 {
 		pattern = patterns[0]
 	} else {
-		pattern = patterns[rand.Intn(len(patterns))]
+		pattern = patterns[random.Intn(ctx, len(patterns))]
 	}
 
-	appearance, err := random.String(pattern.Descriptors)
+	appearance, err := random.String(ctx, pattern.Descriptors)
 	if err != nil {
-		err = fmt.Errorf("Could not generate drink: %w", err)
+		err = fmt.Errorf("failed to generate random alcoholic drink: %w", err)
 		return Drink{}, err
 	}
 
@@ -101,10 +107,10 @@ func Random(resources []resource.Resource) (Drink, error) {
 	if len(baseOptions) == 1 {
 		base = baseOptions[0]
 	} else {
-		base = baseOptions[rand.Intn(len(baseOptions))]
+		base = baseOptions[random.Intn(ctx, len(baseOptions))]
 	}
 
-	strength := getRandomStrength(pattern.BaseStrength)
+	strength := getRandomStrength(ctx, pattern.BaseStrength)
 
 	if len(fruit) > 0 {
 		for _, f := range fruit {
@@ -124,12 +130,12 @@ func Random(resources []resource.Resource) (Drink, error) {
 		}
 	}
 
-	numberOfIngredients = rand.Intn(4)
+	numberOfIngredients = random.Intn(ctx, 4)
 
 	for i := 0; i < numberOfIngredients; i++ {
-		ingredient, err = random.String(possibleIngredients)
+		ingredient, err = random.String(ctx, possibleIngredients)
 		if err != nil {
-			err = fmt.Errorf("Could not generate drink: %w", err)
+			err = fmt.Errorf("failed to get ingredient for random alcoholic drink: %w", err)
 			return Drink{}, err
 		}
 		if !slices.StringIn(ingredient, ingredients) {
@@ -145,21 +151,21 @@ func Random(resources []resource.Resource) (Drink, error) {
 		Ingredients: ingredients,
 	}
 
-	drink.Description = drink.describe()
+	drink.Description = drink.describe(ctx)
 
 	return drink, nil
 }
 
 // RandomSet generates some alcoholic drinks
-func RandomSet(numberOfDrinks int, resources []resource.Resource) ([]Drink, error) {
+func RandomSet(ctx context.Context, numberOfDrinks int, resources []resource.Resource) ([]Drink, error) {
 	var drink Drink
 	var drinks []Drink
 	var err error
 
 	for i := 0; i < numberOfDrinks; i++ {
-		drink, err = Random(resources)
+		drink, err = Random(ctx, resources)
 		if err != nil {
-			err = fmt.Errorf("Could not generate drinks: %w", err)
+			err = fmt.Errorf("failed to generate alcoholic drinks: %w", err)
 			return []Drink{}, err
 		}
 		drinks = append(drinks, drink)

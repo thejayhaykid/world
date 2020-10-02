@@ -1,21 +1,22 @@
 package organization
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 
 	"github.com/ironarachne/world/pkg/profession"
+	"github.com/ironarachne/world/pkg/random"
 )
 
 // Rank is a rank held within an organization
 type Rank struct {
-	Title       string
-	Precedence  int
-	MaxNumber   int
-	MemberNames []string
-	AgeModifier float64
-	AgeCategory string
+	Title         string
+	Precedence    int
+	MaxNumber     int
+	MemberNames   []string
+	AgeModifier   float64
+	AgeCategories []string
 }
 
 // Type is a type of organization
@@ -33,12 +34,12 @@ type Type struct {
 	MinSize           int
 }
 
-func getAllTypes() ([]Type, error) {
+func getAllTypes(ctx context.Context) ([]Type, error) {
 	var adventurers []profession.Profession
 
-	divine := profession.ByTag("divine")
-	fighters := profession.ByTag("fighter")
-	mages := profession.ByTag("mage")
+	divine, _ := profession.ByTag("divine")
+	fighters, _ := profession.ByTag("fighter")
+	mages, _ := profession.ByTag("mage")
 
 	adventurers = append(adventurers, fighters...)
 	adventurers = append(adventurers, mages...)
@@ -96,14 +97,20 @@ func getAllTypes() ([]Type, error) {
 					Precedence:  0,
 					MaxNumber:   1,
 					AgeModifier: 1.25,
-					AgeCategory: "young adult",
+					AgeCategories: []string{
+						"young adult",
+						"adult",
+					},
 				},
 				{
 					Title:       "Adventurer",
 					Precedence:  1,
 					MaxNumber:   0,
 					AgeModifier: 1.0,
-					AgeCategory: "young adult",
+					AgeCategories: []string{
+						"young adult",
+						"adult",
+					},
 				},
 			},
 		},
@@ -155,21 +162,28 @@ func getAllTypes() ([]Type, error) {
 					Precedence:  0,
 					MaxNumber:   1,
 					AgeModifier: 1.5,
-					AgeCategory: "adult",
+					AgeCategories: []string{
+						"adult",
+						"elderly",
+					},
 				},
 				{
 					Title:       "Priest",
 					Precedence:  1,
 					MaxNumber:   0,
 					AgeModifier: 1.25,
-					AgeCategory: "adult",
+					AgeCategories: []string{
+						"adult",
+					},
 				},
 				{
 					Title:       "Acolyte",
 					Precedence:  2,
 					MaxNumber:   0,
 					AgeModifier: 0.9,
-					AgeCategory: "young adult",
+					AgeCategories: []string{
+						"young adult",
+					},
 				},
 			},
 		},
@@ -221,30 +235,34 @@ func getAllTypes() ([]Type, error) {
 					Precedence:  0,
 					MaxNumber:   1,
 					AgeModifier: 1.0,
-					AgeCategory: "adult",
+					AgeCategories: []string{
+						"adult",
+					},
 				},
 				{
 					Title:       "Mercenary",
 					Precedence:  1,
 					MaxNumber:   0,
 					AgeModifier: 1.0,
-					AgeCategory: "young adult",
+					AgeCategories: []string{
+						"young adult",
+					},
 				},
 			},
 		},
 	}
 
-	guild, err := getCraftingGuild()
+	guild, err := getCraftingGuild(ctx)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate organization types: %w", err)
 		return []Type{}, err
 	}
-	school, err := getWizardSchool()
+	school, err := getWizardSchool(ctx)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate organization types: %w", err)
 		return []Type{}, err
 	}
-	wizardSociety, err := getWizardSociety()
+	wizardSociety, err := getWizardSociety(ctx)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate organization types: %w", err)
 		return []Type{}, err
@@ -257,7 +275,7 @@ func getAllTypes() ([]Type, error) {
 	return types, nil
 }
 
-func getCraftingGuild() (Type, error) {
+func getCraftingGuild(ctx context.Context) (Type, error) {
 	guild := Type{
 		Name:    "guild",
 		MaxSize: 150,
@@ -293,27 +311,34 @@ func getCraftingGuild() (Type, error) {
 				Precedence:  0,
 				MaxNumber:   1,
 				AgeModifier: 1.5,
-				AgeCategory: "adult",
+				AgeCategories: []string{
+					"adult",
+					"elderly",
+				},
 			},
 			{
 				Title:       "Artisan",
 				Precedence:  1,
 				MaxNumber:   0,
 				AgeModifier: 1.1,
-				AgeCategory: "adult",
+				AgeCategories: []string{
+					"adult",
+				},
 			},
 			{
 				Title:       "Apprentice Artisan",
 				Precedence:  2,
 				MaxNumber:   0,
 				AgeModifier: 0.7,
-				AgeCategory: "young adult",
+				AgeCategories: []string{
+					"young adult",
+				},
 			},
 		},
 	}
 
-	crafters := profession.ByTag("crafter")
-	memberProfessions, err := profession.RandomSet(1, crafters)
+	crafters, _ := profession.ByTag("crafter")
+	memberProfessions, err := profession.RandomSet(ctx, 1, crafters)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate guild: %w", err)
 		return Type{}, err
@@ -326,7 +351,7 @@ func getCraftingGuild() (Type, error) {
 	return guild, nil
 }
 
-func getWizardSociety() (Type, error) {
+func getWizardSociety(ctx context.Context) (Type, error) {
 	org := Type{
 		Name:    "wizard society",
 		MaxSize: 100,
@@ -371,41 +396,56 @@ func getWizardSociety() (Type, error) {
 				Precedence:  0,
 				MaxNumber:   1,
 				AgeModifier: 4.0,
-				AgeCategory: "elderly",
+				AgeCategories: []string{
+					"adult",
+					"elderly",
+				},
 			},
 			{
 				Title:       "Adept",
 				Precedence:  1,
 				MaxNumber:   0,
 				AgeModifier: 2.5,
-				AgeCategory: "adult",
+				AgeCategories: []string{
+					"adult",
+					"elderly",
+				},
 			},
 			{
 				Title:       "Master",
 				Precedence:  2,
 				MaxNumber:   0,
 				AgeModifier: 2.0,
-				AgeCategory: "adult",
+				AgeCategories: []string{
+					"adult",
+					"young adult",
+				},
 			},
 			{
 				Title:       "Journeyman",
 				Precedence:  3,
 				MaxNumber:   0,
 				AgeModifier: 1.25,
-				AgeCategory: "young adult",
+				AgeCategories: []string{
+					"young adult",
+					"teenager",
+				},
 			},
 			{
 				Title:       "Apprentice",
 				Precedence:  4,
 				MaxNumber:   0,
 				AgeModifier: 1.0,
-				AgeCategory: "teenager",
+				AgeCategories: []string{
+					"teenager",
+					"child",
+				},
 			},
 		},
 	}
 
-	wizards := profession.ByTag("wizard")
-	memberProfessions, err := profession.RandomSet(3, wizards)
+	wizards, _ := profession.ByTag("wizard")
+	memberProfessions, err := profession.RandomSet(ctx, 3, wizards)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate wizard society: %w", err)
 		return Type{}, err
@@ -415,7 +455,7 @@ func getWizardSociety() (Type, error) {
 	return org, nil
 }
 
-func getWizardSchool() (Type, error) {
+func getWizardSchool(ctx context.Context) (Type, error) {
 	org := Type{
 		Name:    "school of wizardry",
 		MaxSize: 500,
@@ -461,27 +501,35 @@ func getWizardSchool() (Type, error) {
 				Precedence:  0,
 				MaxNumber:   1,
 				AgeModifier: 3.0,
-				AgeCategory: "elderly",
+				AgeCategories: []string{
+					"elderly",
+				},
 			},
 			{
 				Title:       "Instructor",
 				Precedence:  1,
 				MaxNumber:   0,
 				AgeModifier: 2.0,
-				AgeCategory: "adult",
+				AgeCategories: []string{
+					"adult",
+					"elderly",
+				},
 			},
 			{
 				Title:       "Student",
 				Precedence:  2,
 				MaxNumber:   0,
 				AgeModifier: 1.0,
-				AgeCategory: "teenager",
+				AgeCategories: []string{
+					"teenager",
+					"child",
+				},
 			},
 		},
 	}
 
-	wizards := profession.ByTag("wizard")
-	memberProfessions, err := profession.RandomSet(3, wizards)
+	wizards, _ := profession.ByTag("wizard")
+	memberProfessions, err := profession.RandomSet(ctx, 3, wizards)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate wizard school: %w", err)
 		return Type{}, err
@@ -492,7 +540,7 @@ func getWizardSchool() (Type, error) {
 }
 
 // GetRandomMemberRank returns a random appropriate rank that is NOT a leader
-func (t Type) GetRandomMemberRank(members []Member) Rank {
+func (t Type) GetRandomMemberRank(ctx context.Context, members []Member) Rank {
 	var possibleRanks []Rank
 
 	counts := make(map[string]int)
@@ -511,14 +559,14 @@ func (t Type) GetRandomMemberRank(members []Member) Rank {
 		return possibleRanks[0]
 	}
 
-	rank := possibleRanks[rand.Intn(len(possibleRanks))]
+	rank := possibleRanks[random.Intn(ctx, len(possibleRanks))]
 
 	return rank
 }
 
 // GetRandomMemberProfession returns a random profession from those available to the organization
-func (t Type) GetRandomMemberProfession() (profession.Profession, error) {
-	prof, err := profession.RandomSet(1, t.MemberProfessions)
+func (t Type) GetRandomMemberProfession(ctx context.Context) (profession.Profession, error) {
+	prof, err := profession.RandomSet(ctx, 1, t.MemberProfessions)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate organization type: %w", err)
 		return profession.Profession{}, err
@@ -527,14 +575,14 @@ func (t Type) GetRandomMemberProfession() (profession.Profession, error) {
 	return prof[0], nil
 }
 
-func getRandomType() (Type, error) {
-	orgTypes, err := getAllTypes()
+func getRandomType(ctx context.Context) (Type, error) {
+	orgTypes, err := getAllTypes(ctx)
 	if err != nil {
 		err = fmt.Errorf("Failed to generate organization type: %w", err)
 		return Type{}, err
 	}
 
-	randomOrgType := orgTypes[rand.Intn(len(orgTypes))]
+	randomOrgType := orgTypes[random.Intn(ctx, len(orgTypes))]
 
 	return randomOrgType, nil
 }

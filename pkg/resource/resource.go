@@ -1,18 +1,23 @@
+/*
+Package resource provides natural and manmade resources. It implements a system for dealing with such.
+*/
 package resource
 
 import (
-	"math/rand"
+	"context"
+
+	"github.com/ironarachne/world/pkg/random"
 )
 
 // Resource is a useful resource
 type Resource struct {
-	Name         string
-	Description  string
-	MainMaterial string
-	Origin       string
-	Tags         []string
-	Commonality  int
-	Value        int
+	Name         string   `json:"name" db:"name"`
+	Description  string   `json:"description" db:"description"`
+	MainMaterial string   `json:"main_material" db:"main_material"`
+	Origin       string   `json:"origin" db:"origin"`
+	Tags         []string `json:"tags" db:"tags"`
+	Commonality  int      `json:"commonality" db:"commonality"`
+	Value        int      `json:"value" db:"value"`
 }
 
 // ByTag returns a slice of resources that have the given tag
@@ -51,30 +56,30 @@ func (resource Resource) InSlice(resources []Resource) bool {
 }
 
 // Random returns a random resource from a list
-func Random(resources []Resource) Resource {
+func Random(ctx context.Context, resources []Resource) Resource {
 	if len(resources) == 1 {
 		return resources[0]
 	} else if len(resources) < 1 {
 		panic("No resources given")
 	}
 
-	resource := resources[rand.Intn(len(resources))]
+	resource := resources[random.Intn(ctx, len(resources))]
 
 	return resource
 }
 
 // RandomSet returns a slice of random elements of the given resources
-func RandomSet(min int, max int, resources []Resource) []Resource {
+func RandomSet(ctx context.Context, min int, max int, resources []Resource) []Resource {
 	var result []Resource
 	var resource Resource
 
-	numberOfResources := rand.Intn(max-min) + min
+	numberOfResources := random.Intn(ctx, max-min) + min
 	if numberOfResources > len(resources) {
 		numberOfResources = len(resources)
 	}
 
 	for i := 0; i < numberOfResources; i++ {
-		resource = Random(resources)
+		resource = Random(ctx, resources)
 		if !resource.InSlice(result) {
 			result = append(result, resource)
 		}
